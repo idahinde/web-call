@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="cache-control" content="no-cache">
+    <meta http-equiv="pragma" content="no-cache">
+    <meta http-equiv="expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css"
+        href="https://cdnjs.cloudflare.com/ajax/libs/patternfly/3.24.0/css/patternfly.min.css">
+    <link rel="stylesheet" type="text/css"
+        href="https://cdnjs.cloudflare.com/ajax/libs/patternfly/3.24.0/css/patternfly-additions.min.css">
+    <title>Video Call</title>
+    <style>
+        #chatmsgpanel,
+        #chatlistmsgpanel {
+            resize: none;
+            overflow: hidden;
+            min-height: 570px;
+            max-height: 570px;
+            margin-bottom: 7px;
+        }
+
+        video,
+        #console {
+            display: block;
+            font-size: 14px;
+            line-height: 1.42857143;
+            color: #555;
+            background-color: #fff;
+            background-image: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
+            box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
+            -webkit-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+            transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+        }
+
+        #console {
+            overflow-y: auto;
+            width: 100%;
+            height: 175px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-default navbar-pf" role="navigation">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="/">
+                <p><strong>AbaaChatPay Chat System!</strong></p>
+            </a>
+        </div>
+    </nav>
+    <div class="container-fluid">
+        <div class="page-header">
+            <h1>Chat</h1>
+        </div>
+        <div class="row">
+            <div class="col-md-5">
+                <label class="control-label">Name</label>
+                <label id="peer" name="peer" class="form-control">Idris Ishaq</label>
+            </div>
+            <div class="col-md-6">
+                <input type="text" id="txphonenumberef" value="w32g1774k7e36551zzz36a47016677549831390z876227922443"
+                    class="form-control" placeholder="Phone Number" />
+                <button type="button" id="btnConnectWithMe" class="btn btn-success btn-lg">Chat With Me</button>
+            </div>
+        </div>
+        <p></p>
+        <div class="row">
+            <div class="col-md-6">
+                <textarea class="form-control" id="chatlistmsgpanel"></textarea>
+            </div>
+            <div class="col-md-6">
+                <textarea class="form-control" id="chatmsgpanel"></textarea>
+            </div>
+        </div>
+        <p></p>
+        <div class="row">
+            <div class="col-md-6">
+                <input type="text" id="txrefdatapsd" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <button class="btn btn-success btn-lg" type="button" id="btnsenddata">Send Message</button>
+            </div>
+        </div>
+        <p>&nbsp;</p>
+        <div class="row">
+            <div class="col-md-6">
+                <video id="localVideoObject" autoplay width="640px" height="480px"
+                    poster="images/Abaachatpay_logo.png"></video>
+                <br />
+                <button class="btn btn-success btn-lg" id="btnProcessCall">Call Nasir</button>
+                <div>
+                    <label>Call State: </label>
+                    <label id="callStateRef"></label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <video id="remoteVideoObject" autoplay width="640px" height="480px"
+                    poster="images/Abaachatpay_logo.png"></video>
+                <br />
+                <button class="btn btn-success btn-lg" id="btnAsnwerCall">Answer Call </button>
+            </div>
+        </div>
+        <div></div>
+        <p>&nbsp;</p>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/patternfly/3.24.0/js/patternfly.min.js"></script>
+    <script src="js/kurento-utils.js"></script>
+    <script type="text/javascript">
+
+        const serverList = [
+            "stun.l.google.com:19302",
+            "stun1.l.google.com:19302",
+            "stun2.l.google.com:19302",
+            "stun3.l.google.com:19302",
+            "stun4.l.google.com:19302",
+            "stun.ekiga.net",
+            "stun.ideasip.com",
+            "stun.schlund.de",
+            "stun.stunprotocol.org:3478",
+            "stun.voiparound.com",
+            "stun.voipbuster.com",
+            "stun.voipstunt.com",
+            "stun.voxgratia.org"
+        ];
+
+        let connected = false;
+        let parentWebSocket;
+        let chatWebSocket;
+        let callState = null;
+
+        // for call
+        let webRtcPeerObject;
+        let localVideoStream;
+        let remoteVideoStream;
+
+        const host = "chat.abaachatpay.io";
+        const token = "eyJTRVNTSU9OLVJFRiI6ImtnNGVqNnc5N2s4Njk0ajQ2NHd3MXJ3Nmp3d3dna3I3aTA3NzhvaWhqIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJzZXNzaW9uSWQiOiJrZzRlajZ3OTdrODY5NGo0NjR3dzFydzZqd3d3Z2tyN2kwNzc4b2loaiIsInBlcm1pc3Npb25zIjpbImFjY291bnQiLCJ3aXRoZHJhdyIsInRyYW5zZmVyIiwiZnVuZGluZyJdLCJpYXQiOjE2OTc3Mzk0MDQsImF1ZCI6ImFiYWFjaGF5cGF5cGxhdGZvcm0iLCJpc3MiOiJodHRwczovL2FiYWFjaGF0cGF5LmNvbS9pc3N1ZXIiLCJzdWIiOiJod2t3azc0OTQ4d2E3NjJhYTcyNjQ0NTcxMDc4MjE3MzY1OTEyNzAyODFhNjA5ODN6MTA3In0.iO50NqW0GQUOivOjdgEuuhwGbymAy9lqdI0FeT1gmhusb3QZjP04HNWwv7hl0GZMUEtEACGl149HLQFAYyNTFY9DBL6573tOTyaEsV501DwCCffIS9xX7Aot3lOSM288VFMLDE1d5cl8SeW6JsNnv8P-LaOOsWnvGSsQPsXo9jbp2qUcyw1ohPOqmJZli5UMWAOfe2zII6V1K1s9M4GWWTvN0LaLC5MZCWgGSjJa62_ftvaA9CCf2HhZ1c9CxVHePb2Vek-IMqYnZdz20JYgIQdkY_EJxrZpUcHsqLn_VVvUcC3vDUExR73SrWkfQf6VCbVUEJpwX5Cg014pXQ8iKA";
+        const chatSocketUrl = `wss://${host}/v1/abaa_chat_connect/key_ref=${token}/android`;
+        const websocketUrl = `wss://${host}/v1/abaa_connect/key_ref=${token}/android`;
+
+        $(document).ready(function () {
+            document.getElementById("callStateRef").innerHTML = callState;
+            if (!connected) {
+                parentWebSocket = new WebSocket(websocketUrl);
+                parentWebSocket.onopen = function () {
+                    connected = true;
+                    initializeCallConnection();
+                    console.log("Connected to the web socket");
+                }
+                parentWebSocket.onmessage = function (m) {
+                    $("#chatlistmsgpanel").append(m.data + "\n");
+                    scrollParent();
+                    let data = JSON.parse(m.data);
+                    // handle call 
+                    if (data.messageType === "callOfferResponse") {
+                        acceptCallOffer(data);
+                    }
+                };
+                parentWebSocket.onerror = function (e) {
+                    console.log(e);
+                }
+                parentWebSocket.onclose = function (e) {
+                    console.log(e);
+                }
+            }
+            $("#btnsenddata").on("click", function () {
+                if (connected) {
+                    let msgdata = {
+                        "msgType": "replyMsg",
+                        //"msgType": "replyResourceMsg",
+                        "replyMsgId": "9zc68dzcz7z47g5a7274z20e00f893i10z05e7id310",
+                        "msgData": $("#txrefdatapsd").val(),
+                        "type": "sentMsg",
+                        "assetResponses": [dataJson()]
+                    };
+                    chatWebSocket.send(JSON.stringify(msgdata));
+                    $("#txrefdatapsd").val('');
+                }
+            });
+
+            $("#btnConnectWithMe").on("click", function () {// user if online
+                if (connected) {
+                    if (chatWebSocket) {
+                        chatWebSocket.close();
+                    }
+                    chatWebSocket = new WebSocket(`${chatSocketUrl}/${$("#txphonenumberef").val()}`);
+                    chatWebSocket.onmessage = function (m) {
+                        $("#chatmsgpanel").append(m.data + "\n");
+                        scrollChat();
+                    };
+                }
+            });
+
+            // call nasir
+            $("#btnProcessCall").on("click", function () {
+                if (connected) {
+                    createCallOffer();
+                }
+            });
+        });
+        const scrollParent = function () {
+            $('#chatlistmsgpanel').scrollTop($('#chatlistmsgpanel')[0].scrollHeight);
+        };
+        const scrollChat = function () {
+            $('#chatmsgpanel').scrollTop($('#chatmsgpanel')[0].scrollHeight);
+        };
+
+        const dataJson = () => {
+            return {
+                "asset_id": "5d146c8243e7362192d6066b89b21cf5",
+                "public_id": "asset_folder/5a333a9ec9324949bcd360a868b7cd6aootexz2ti3z0o",
+                "version": 1700780033,
+                "version_id": "16ae010a31919cd92ce2a74e6a198260",
+                "signature": "f43184cb65be6cad28786a835a0d3ffdc83b083f",
+                "width": 0,
+                "height": 0,
+                "format": "mp4",
+                "resource_type": "video",
+                "created_at": "2023-11-23T22:53:53Z",
+                "tags": [],
+                "pages": 0,
+                "bytes": 177754,
+                "type": "authenticated",
+                "etag": "81a88510512b0647376a2949ab5b5141",
+                "placeholder": false,
+                "url": "http://res.cloudinary.com/dqm6j1mvz/video/authenticated/s--hkMxicdK--/v1700780033/asset_folder/5a333a9ec9324949bcd360a868b7cd6aootexz2ti3z0o.mp4",
+                "secure_url": "https://res.cloudinary.com/dqm6j1mvz/video/authenticated/s--hkMxicdK--/v1700780033/asset_folder/5a333a9ec9324949bcd360a868b7cd6aootexz2ti3z0o.mp4",
+                "playback_url": "https://res.cloudinary.com/dqm6j1mvz/video/authenticated/s--MnnzIgFG--/sp_auto/v1700780033/asset_folder/5a333a9ec9324949bcd360a868b7cd6aootexz2ti3z0o.m3u8",
+                "folder": "asset_folder",
+                "access_mode": "authenticated",
+                "existing": false,
+                "audio": {
+                    "codec": "aac",
+                    "bit_rate": "122015",
+                    "frequency": 48000,
+                    "channels": 1,
+                    "channel_layout": "mono"
+                },
+                "video": {},
+                "is_audio": true,
+                "bit_rate": 124325,
+                "duration": 11.438,
+                "original_filename": "WhatsApp Ptt 2023-11-18 at 4.26.56 PM",
+                "api_key": "111441539237122"
+            };
+        }
+
+        const initializeCallConnection = async () => {
+            try {
+
+                localVideoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                remoteVideoStream = new MediaStream();
+
+                document.getElementById('localVideoObject').srcObject = localVideoStream;
+                document.getElementById('remoteVideoObject').srcObject = remoteVideoStream;
+                webRtcPeerObject = new RTCPeerConnection(serverList);
+
+                localVideoStream.getTracks().forEach((track) => {
+                    webRtcPeerObject.addTrack(track, localVideoStream);
+                });
+
+                webRtcPeerObject.ontrack = (event) => {
+                    event.streams[0].getTracks().forEach((track) => {
+                        remoteVideoStream.addTrack(track);
+                    });
+                };
+
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+            }
+        }
+
+        function onError() {
+            //   setCallState(NO_CALL);
+        }
+
+        async function createCallOffer() {
+            let callOffer = await webRtcPeerObject.createOffer({
+                offerToReceiveAudio: 1,
+                offerToReceiveVideo: 1
+            });
+
+            // first action
+            var message = {
+                msgId: 'registerCall',
+                callType: 'videoCall', // videoCall or audioCall
+                callingUserId: "ro98ij29i1o85918815388973248a14a5273705z43z5158a5203",
+                sdpOffer: JSON.stringify(callOffer)
+            };
+            // send to server
+            sendMessage(message);
+
+            // second action
+            await webRtcPeerObject.setLocalDescription(new RTCSessionDescription(callOffer));
+
+            // thirds action
+            webRtcPeerObject.onicecandidate = async (event) => {
+                //Event that fires off when a new offer ICE candidate is created
+                if (event.candidate) {
+                    // console.log(JSON.stringify(webRtcPeerObject.localDescription));
+                    // console.log(JSON.stringify(event.candidate));
+                    var message = {
+                        msgId: 'registerIceCandidate',
+                        userId: 'wrej9kp5p5jaaa840899a8a252z53660255240z5azz827489727',
+                        candidate: JSON.stringify(event.candidate)
+                    };
+                    sendMessage(message);
+                }
+            };
+
+        }
+
+        function sendMessage(data) {
+            if (parentWebSocket) {
+                parentWebSocket.send(JSON.stringify(data));
+            }
+        }
+
+
+        const acceptCallOffer = async (answerData) => {
+            // set answer remote offer
+            var answerRef = JSON.parse(answerData.sdpAnswer);
+            await webRtcPeerObject.setRemoteDescription(new RTCSessionDescription(answerRef));
+        }
+
+    </script>
+</body>
+
+</html>
